@@ -597,6 +597,10 @@ long bladerf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 return -EFAULT;
             }
 
+            if (brf_fw.len != 256) {
+                return -EINVAL
+            }
+
             fw_buf = kzalloc(256, GFP_KERNEL);
             if (!fw_buf)
                 return -EINVAL;
@@ -667,6 +671,10 @@ long bladerf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 return -EFAULT;
             }
 
+            if (brf_fw.len != 256) {
+                return -EINVAL;
+            }
+
             fw_buf = kzalloc(256, GFP_KERNEL);
             if (!fw_buf)
                 return -EINVAL;
@@ -720,8 +728,15 @@ long bladerf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
             }
 
             if (cmd == BLADE_OTP_READ) {
-                if (brf_sector.idx != 0 || brf_sector.len != 0x100)
+                if (brf_sector.idx != 0 || brf_sector.len != 0x100) {
                     dev_err(&dev->interface->dev, "Invalid OTP settings, expecting idx=0, len=256\n");
+                    return -EINVAL;
+                }
+            } else {
+                // 16MiB is more flash than any bladeRF will support
+                if (brf_sector.len > 16000000) {
+                    return -EINVAL;
+                }
             }
 
 
@@ -730,9 +745,12 @@ long bladerf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 sz = 64;
             } else if (dev->udev->speed == USB_SPEED_SUPER) {
                 sz = 256;
+            } else {
+                return -ENODEV;
             }
 
-            count = brf_sector.len + (sz - (brf_sector.len % sz));
+
+            count = ((brf_sector.len + 255) / 256) * 256;
             fw_buf = kzalloc(count, GFP_KERNEL);
 
             if (!fw_buf)
@@ -806,6 +824,11 @@ long bladerf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 return -EFAULT;
             }
 
+            // 16MiB is more flash than any bladeRF will support
+            if (brf_sector.len > 16000000) {
+                return -EINVAL;
+            }
+
             brf_fw.len = ((brf_fw.len + 255) / 256) * 256;
 
             fw_buf = kzalloc(brf_fw.len, GFP_KERNEL);
@@ -843,6 +866,9 @@ long bladerf_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                 sz = 64;
             } else if (dev->udev->speed == USB_SPEED_SUPER) {
                 sz = 256;
+            } else {
+                retval = -ENODEV;
+                goto leave_fw;
             }
 
             pages_to_write = (brf_fw.len + 255) / 0x100;
