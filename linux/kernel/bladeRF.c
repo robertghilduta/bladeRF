@@ -28,8 +28,9 @@ typedef struct {
     spinlock_t            data_in_lock;
     unsigned int          data_in_consumer_idx;
     unsigned int          data_in_producer_idx;
-    atomic_t              data_in_cnt;
-    atomic_t              data_in_inflight;
+    atomic_t              data_in_cnt;          // number of buffers with data unread by the usermode application
+    atomic_t              data_in_used;         // number of buffers that may be inflight or have unread data
+    atomic_t              data_in_inflight;     // number of buffers currently in the USB stack
     struct data_buffer    data_in_bufs[NUM_DATA_URB];
     struct usb_anchor     data_in_anchor;
     wait_queue_head_t     data_in_wait;
@@ -65,13 +66,21 @@ static int __submit_rx_urb(bladerf_device_t *dev, unsigned int flags) {
     int ret;
 
     ret = 0;
-    while (atomic_read(&dev->data_in_inflight) < NUM_CONCURRENT && atomic_read(&dev->data_in_cnt) < NUM_DATA_URB) {
+    while (atomic_read(&dev->data_in_inflight) < NUM_CONCURRENT && atomic_read(&dev->data_in_used) < NUM_DATA_URB) {
         spin_lock_irqsave(&dev->data_in_lock, irq_flags);
         urb = dev->data_in_bufs[dev->data_in_producer_idx].urb;
+
+        if (!dev->data_in_bufs[dev->data_in_producer_idx].valid) {
+            spin_unlock_irqrestore(&dev->data_in_lock, irq_flags);
+            break;
+        }
+
+        dev->data_in_bufs[dev->data_in_producer_idx].valid = 0; // mark this RX packet as being in use
 
         dev->data_in_producer_idx++;
         dev->data_in_producer_idx &= (NUM_DATA_URB - 1);
         atomic_inc(&dev->data_in_inflight);
+        atomic_inc(&dev->data_in_used);
 
         usb_anchor_urb(urb, &dev->data_in_anchor);
         spin_unlock_irqrestore(&dev->data_in_lock, irq_flags);
@@ -105,6 +114,7 @@ static int bladerf_start(bladerf_device_t *dev) {
 
     dev->rx_en = 0;
     atomic_set(&dev->data_in_cnt, 0);
+    atomic_set(&dev->data_in_used, 0);
     dev->data_in_consumer_idx = 0;
     dev->data_in_producer_idx = 0;
 
@@ -240,6 +250,7 @@ static int disable_rx(bladerf_device_t *dev) {
 
     ret = 0;
     atomic_set(&dev->data_in_cnt, 0);
+    atomic_set(&dev->data_in_used, 0);
     dev->data_in_consumer_idx = 0;
     dev->data_in_producer_idx = 0;
 
@@ -308,12 +319,22 @@ static ssize_t bladerf_read(struct file *file, char __user *buf, size_t count, l
 
             spin_lock_irqsave(&dev->data_in_lock, flags);
             atomic_dec(&dev->data_in_cnt);
+            atomic_dec(&dev->data_in_used);
             idx = dev->data_in_consumer_idx++;
             dev->data_in_consumer_idx &= (NUM_DATA_URB - 1);
 
             spin_unlock_irqrestore(&dev->data_in_lock, flags);
 
             ret = copy_to_user(buf, dev->data_in_bufs[idx].addr, DATA_BUF_SZ);
+
+            dev->data_in_bufs[idx].valid = 1; // mark this RX packet as free
+
+            // in case all of the buffers were full, rx needs to be restarted
+            // samples may have also been dropped if this happens because the user-mode
+            // application is not reading samples fast enough
+            if (atomic_read(&dev->data_in_inflight) == 0)
+                __submit_rx_urb(dev);
+
 
             if (!ret)
                 ret = DATA_BUF_SZ;
@@ -348,9 +369,14 @@ static int __submit_tx_urb(bladerf_device_t *dev) {
         db = &dev->data_out_bufs[dev->data_out_consumer_idx];
         urb = db->urb;
 
-        if (!db->valid)
+        if (!db->valid) {
+            spin_unlock_irqrestore(&dev->data_out_lock, flags);
             break;
+        }
 
+        // clear this packet's valid flag so it is not submitted until the next time it
+        // is used and copy_from_user() has copied data into the buffer
+        db->valid = 0;
         dev->data_out_consumer_idx++;
         dev->data_out_consumer_idx &= (NUM_DATA_URB - 1);
 
@@ -437,7 +463,7 @@ static ssize_t bladerf_write(struct file *file, const char *user_buf, size_t cou
         return -EFAULT;
     }
 
-    db->valid = 1;
+    db->valid = 1; // mark this TX packet as having valid data
 
     __submit_tx_urb(dev);
     if (!dev->tx_en)
