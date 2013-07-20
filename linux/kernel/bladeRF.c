@@ -40,6 +40,7 @@ typedef struct {
     unsigned int          data_out_consumer_idx;
     unsigned int          data_out_producer_idx;
     atomic_t              data_out_cnt;
+    atomic_t              data_out_used;
     atomic_t              data_out_inflight;
     struct data_buffer    data_out_bufs[NUM_DATA_URB];
     struct usb_anchor     data_out_anchor;
@@ -146,6 +147,8 @@ static int bladerf_start(bladerf_device_t *dev) {
 
     dev->tx_en = 0;
     atomic_set(&dev->data_out_cnt, 0);
+    atomic_set(&dev->data_out_used, 0);
+
     dev->data_out_consumer_idx = 0;
     dev->data_out_producer_idx = 0;
 
@@ -403,6 +406,7 @@ static void __bladeRF_write_cb(struct urb *urb)
     usb_unanchor_urb(urb);
 
     atomic_dec(&dev->data_out_inflight);
+    atomic_dec(&dev->data_out_used);
     if (dev->tx_en)
         __submit_tx_urb(dev);
     dev->bytes += DATA_BUF_SZ;
@@ -439,9 +443,9 @@ static ssize_t bladerf_write(struct file *file, const char *user_buf, size_t cou
             return llen;
     }
 
-    reread = atomic_read(&dev->data_out_cnt);
+    reread = atomic_read(&dev->data_out_used);
     if (reread >= NUM_DATA_URB) {
-        status = wait_event_interruptible_timeout(dev->data_out_wait, atomic_read(&dev->data_out_cnt) < NUM_DATA_URB, 2 * HZ);
+        status = wait_event_interruptible_timeout(dev->data_out_wait, atomic_read(&dev->data_out_used) < NUM_DATA_URB, 2 * HZ);
 
         if (status < 0) {
             return status;
@@ -456,6 +460,7 @@ static ssize_t bladerf_write(struct file *file, const char *user_buf, size_t cou
     dev->data_out_producer_idx &= (NUM_DATA_URB - 1);
     db = &dev->data_out_bufs[idx];
     atomic_inc(&dev->data_out_cnt);
+    atomic_inc(&dev->data_out_used);
 
     spin_unlock_irqrestore(&dev->data_out_lock, flags);
 
