@@ -1608,26 +1608,6 @@ int CALL_CONV bladerf_config_gpio_read(struct bladerf *dev, uint32_t *val);
 API_EXPORT
 int CALL_CONV bladerf_config_gpio_write(struct bladerf *dev, uint32_t val);
 
-
-/**
- *
- * @param   dev         Device handle
- *
- * @return 0 on success, value from \ref RETCODES list on failure
- */
-API_EXPORT 
-int bladerf_set_correction(struct bladerf *dev, bladerf_correction_module module, int16_t value);
-
-
-/**
- *
- * @param   dev         Device handle
- *
- * @return 0 on success, value from \ref RETCODES list on failure
- */
-API_EXPORT 
-int bladerf_print_correction(struct bladerf *dev, bladerf_correction_module module, int16_t *value);
-
 /**
  *
  * @param   dev         Device handle
