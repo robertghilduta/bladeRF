@@ -40,11 +40,6 @@ static inline size_t samples2bytes(struct bladerf_sync *s, unsigned int n) {
 }
 
 
-static FILE *fp;
-#undef log_verbose
-#define log_verbose(...) fprintf(fp, __VA_ARGS__), fflush(fp)
-#undef log_debug
-#define log_debug(...) fprintf(fp, __VA_ARGS__), fflush(fp)
 int sync_init(struct bladerf *dev,
               bladerf_module module,
               bladerf_format format,
@@ -243,11 +238,6 @@ static int check_worker(struct bladerf_sync *s)
 int sync_rx(struct bladerf *dev, void *samples, unsigned num_samples,
              struct bladerf_metadata *metadata, unsigned int timeout_ms)
 {
-    if (!fp) {
-       fp = fopen("dicks",  "w+");
-    }
-    fprintf(fp, "------------\n");
-    fflush(fp);
     int status;
     struct bladerf_sync *s = dev->sync_rx;
     struct buffer_mgmt *b = &s->buf_mgmt;
@@ -262,9 +252,7 @@ int sync_rx(struct bladerf *dev, void *samples, unsigned num_samples,
     status = check_worker(s);
 
     while(status == 0 && samples_returned < num_samples) {
-        log_verbose("lock?\n");
         pthread_mutex_lock(&b->lock);
-        log_verbose("lock!\n");
 
         /* If we have a fresh buffer, mark that we're consuming it */
         if (b->status[b->cons_i] == SYNC_BUFFER_FULL) {
@@ -304,9 +292,9 @@ int sync_rx(struct bladerf *dev, void *samples, unsigned num_samples,
         } else {
             /* Need to wait for a buffer to become available */
             if (timeout_ms == 0) {
+                status = pthread_cond_wait(&b->buf_produced, &b->lock);
                 log_verbose("%s: Infinite wait for [%d] to fill.\n",
                            __FUNCTION__, b->cons_i);
-                status = pthread_cond_wait(&b->buf_produced, &b->lock);
             } else {
                 log_verbose("%s: Timed wait for [%d] to fill.\n",
                            __FUNCTION__, b->cons_i);
@@ -321,17 +309,13 @@ int sync_rx(struct bladerf *dev, void *samples, unsigned num_samples,
 
         if (status == -ETIMEDOUT) {
             status = BLADERF_ERR_TIMEOUT;
-            fprintf(fp, "1 %d fuck\n", status);
         } else if (status != 0) {
             status = BLADERF_ERR_UNEXPECTED;
-            fprintf(fp, "2 %d fuck\n", status);
         } else {
             status = check_worker(s);
-            fprintf(fp, "3 %d fuck\n", status);
         }
     }
 
-    log_verbose("left\n");
     return status;
 }
 
