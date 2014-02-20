@@ -39,6 +39,12 @@
 #include "sync_worker.h"
 #include "conversions.h"
 
+FILE *fp;
+#undef log_verbose
+#define log_verbose(...) ({if (!fp)  fp = fopen("zicks", "w+"); fprintf(fp,"%d: ", (int)time(NULL)); fprintf(fp, __VA_ARGS__); fflush(fp);})
+#undef log_debug
+#define log_debug(...) ({if (!fp)  fp = fopen("zicks", "w+"); fprintf(fp,"%d: ", (int)time(NULL)); fprintf(fp, __VA_ARGS__); fflush(fp);})
+
 void *sync_worker_task(void *arg);
 
 static void *rx_callback(struct bladerf *dev,
@@ -139,7 +145,7 @@ static void *rx_callback(struct bladerf *dev,
         next_buf = NULL;
         if (status == ETIMEDOUT) {
             log_debug("%s worker: Timed out. Shutting down.\n",
-                      MODULE_STR(s), status);
+                      MODULE_STR(s));
         } else {
             log_debug("%s worker: Unexpected error (%d), shutting down.\n",
                       MODULE_STR(s), status);
@@ -261,7 +267,7 @@ static void *tx_callback(struct bladerf *dev,
 
         if (status == ETIMEDOUT) {
             log_debug("%s worker: Timed out. Shutting down.\n",
-                      MODULE_STR(s), status);
+                      MODULE_STR(s));
         } else {
             log_debug("%s worker: Unexpected error (%d), shutting down.\n",
                       MODULE_STR(s), status);
