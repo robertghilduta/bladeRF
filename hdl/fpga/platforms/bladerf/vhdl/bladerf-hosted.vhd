@@ -247,15 +247,7 @@ begin
       ) ;
 
     -- Cross domain synchronizer chains
-    U_usb_speed : entity work.synchronizer
-      generic map (
-        RESET_LEVEL         =>  '0'
-      ) port map (
-        reset               =>  '0',
-        clock               =>  fx3_pclk,
-        async               =>  nios_gpio(7),
-        sync                =>  usb_speed
-      ) ;
+usb_speed <= '0';
 
     U_usb_speed_rx : entity work.synchronizer
       generic map (
@@ -279,35 +271,10 @@ begin
           ) ;
     end generate ;
 
-    U_meta_sync_fx3 : entity work.synchronizer
-      generic map (
-        RESET_LEVEL         =>  '0'
-      ) port map (
-        reset               =>  '0',
-        clock               =>  fx3_pclk,
-        async               =>  nios_gpio(16),
-        sync                =>  meta_en_fx3
-      ) ;
+meta_en_fx3 <= '1';
+meta_en_tx <= '1';
+meta_en_rx <= '1';
 
-    U_meta_sync_tx : entity work.synchronizer
-      generic map (
-        RESET_LEVEL         =>  '0'
-      ) port map (
-        reset               =>  '0',
-        clock               =>  tx_clock,
-        async               =>  nios_gpio(16),
-        sync                =>  meta_en_tx
-      ) ;
-
-    U_meta_sync_rx : entity work.synchronizer
-      generic map (
-        RESET_LEVEL         =>  '0'
-      ) port map (
-        reset               =>  '0',
-        clock               =>  rx_clock,
-        async               =>  nios_gpio(16),
-        sync                =>  meta_en_rx
-      ) ;
 
     U_sys_reset_sync : entity work.reset_synchronizer
       generic map (
@@ -528,27 +495,10 @@ begin
         overflow_duration   =>  x"ffff"
       ) ;
 
-    U_rx_iq_correction : entity work.iq_correction(rx)
-      generic map(
-        INPUT_WIDTH         => rx_sample_corrected_i'length
-      ) port map(
-        reset               => rx_reset,
-        clock               => rx_clock,
 
-        in_real             => resize(rx_mux_i,16),
-        in_imag             => resize(rx_mux_q,16),
-        in_valid            => rx_mux_valid,
-
-        out_real            => rx_sample_corrected_i,
-        out_imag            => rx_sample_corrected_q,
-        out_valid           => rx_sample_corrected_valid,
-
-        dc_real             => FPGA_DC_CORRECTION,
-        dc_imag             => FPGA_DC_CORRECTION,
-        gain                => correction_rx_gain,
-        phase               => correction_rx_phase,
-        correction_valid    => correction_valid
-      );
+rx_sample_corrected_i <=      rx_mux_i;
+rx_sample_corrected_q <=      rx_mux_q;
+rx_sample_corrected_valid <= rx_gen_valid;
 
     U_fifo_reader : entity work.fifo_reader
       port map (
@@ -643,7 +593,7 @@ begin
         sample_valid    =>  rx_gen_valid
       ) ;
 
-    rx_mux_mode <= rx_mux_mode_t'val(to_integer(rx_mux_sel)) ;
+    rx_mux_mode <= RX_MUX_12BIT_COUNTER; --rx_mux_mode_t'val(to_integer(rx_mux_sel)) ;
 
     rx_mux : process(rx_reset, rx_clock)
     begin
@@ -709,34 +659,34 @@ begin
     fx3_uart_rxd <= nios_uart_rxd when sys_rst_sync = '0' else 'Z' ;
 
     -- NIOS control system for si5338, vctcxo trim and lms control
-    U_nios_system : nios_system
-      port map (
-        clk_clk             => \80MHz\,
-        reset_reset_n       => '1',
-        dac_MISO            => dac_sdo,
-        dac_MOSI            => dac_sdi,
-        dac_SCLK            => dac_sclk,
-        dac_SS_n            => dac_csx,
-        spi_MISO            => lms_sdo,
-        spi_MOSI            => lms_sdio,
-        spi_SCLK            => lms_sclk,
-        spi_SS_n            => lms_sen,
-        uart_rxd            => nios_uart_txd,
-        uart_txd            => nios_uart_rxd,
-        gpio_export         => nios_gpio,
-        correction_tx_phase_gain_export    => correction_tx_phase_gain,
-        correction_rx_phase_gain_export    => correction_rx_phase_gain,
-        oc_i2c_scl_pad_o    => i2c_scl_out,
-        oc_i2c_scl_padoen_o => i2c_scl_oen,
-        oc_i2c_sda_pad_i    => i2c_sda_in,
-        oc_i2c_sda_pad_o    => i2c_sda_out,
-        oc_i2c_sda_padoen_o => i2c_sda_oen,
-        oc_i2c_arst_i       => '0',
-        oc_i2c_scl_pad_i    => i2c_scl_in,
-        time_tamer_time_tx  => std_logic_vector(tx_timestamp),
-        time_tamer_time_rx  => std_logic_vector(rx_timestamp),
-        time_tamer_synchronize => timestamp_sync
-      ) ;
+--    U_nios_system : nios_system
+--      port map (
+--        clk_clk             => \80MHz\,
+--        reset_reset_n       => '1',
+--        dac_MISO            => dac_sdo,
+--        dac_MOSI            => dac_sdi,
+--        dac_SCLK            => dac_sclk,
+--        dac_SS_n            => dac_csx,
+--        spi_MISO            => lms_sdo,
+--        spi_MOSI            => lms_sdio,
+--        spi_SCLK            => lms_sclk,
+--        spi_SS_n            => lms_sen,
+--        uart_rxd            => nios_uart_txd,
+--        uart_txd            => nios_uart_rxd,
+--        gpio_export         => nios_gpio,
+--        correction_tx_phase_gain_export    => correction_tx_phase_gain,
+--        correction_rx_phase_gain_export    => correction_rx_phase_gain,
+--        oc_i2c_scl_pad_o    => i2c_scl_out,
+--        oc_i2c_scl_padoen_o => i2c_scl_oen,
+--        oc_i2c_sda_pad_i    => i2c_sda_in,
+--        oc_i2c_sda_pad_o    => i2c_sda_out,
+--        oc_i2c_sda_padoen_o => i2c_sda_oen,
+--        oc_i2c_arst_i       => '0',
+--        oc_i2c_scl_pad_i    => i2c_scl_in,
+--        time_tamer_time_tx  => std_logic_vector(tx_timestamp),
+--        time_tamer_time_rx  => std_logic_vector(rx_timestamp),
+--        time_tamer_synchronize => timestamp_sync
+--      ) ;
 
     -- IO for NIOS
     si_scl <= i2c_scl_out when i2c_scl_oen = '0' else 'Z' ;

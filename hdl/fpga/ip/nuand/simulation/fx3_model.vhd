@@ -73,7 +73,7 @@ begin
     begin
         dma0_rx_reqx <= '1' ;
         dma1_rx_reqx <= '1' ;
-        dma_rx_enable <= '0' ;
+        dma_rx_enable <= '1' ;
         wait until rising_edge(fx3_pclk) and system_reset = '0' ;
         for i in 1 to 10 loop
             wait until rising_edge( fx3_pclk ) ;
@@ -111,6 +111,7 @@ begin
         dma_tx_enable <= '0' ;
         fx3_gpif <= (others =>'Z') ;
         wait until system_reset = '0' ;
+        wait;
         for i in 0 to 1000 loop
             wait until rising_edge( fx3_pclk ) ;
         end loop ;
