@@ -166,6 +166,15 @@ void *rx_task(void *args)
         goto rx_task_out;
     }
 
+    struct bladerf_superspeed_timestamp {
+        uint32_t rsvd;
+        uint32_t time_lo;
+        uint32_t time_hi;
+        uint32_t flags;
+        uint16_t samples[512*2-8];
+    };
+
+
     status = bladerf_enable_module(task->dev, BLADERF_MODULE_RX, true);
     if (status != 0) {
         log_error("Failed to enable RX module: %s\n", bladerf_strerror(status));
@@ -182,7 +191,19 @@ void *rx_task(void *args)
             done = true;
         } else {
             log_verbose("RX'd %llu samples.\n", (unsigned long long)to_rx);
-            n = fwrite(samples, 2 * sizeof(int16_t), to_rx, p->out_file);
+            int i, l;
+            l = to_rx / sizeof(struct bladerf_superspeed_timestamp);
+            struct bladerf_superspeed_timestamp *bst = (struct bladerf_superspeed_timestamp *)samples;
+            fprintf(p->out_file, "pnies %d/%d  %d\n", to_rx, (int)sizeof(struct bladerf_superspeed_timestamp), l);
+            for (i = 0; i < l; i++, bst++) {
+                static uint64_t llast;
+                uint64_t now;
+                now = ((uint64_t)bst->time_hi) << 32 | bst->time_lo;
+                fprintf(p->out_file, "0x%.8x 0x%.8x 0x%.8x 0x%.8x diff=%d\n", bst->rsvd, bst->time_hi, bst->time_lo, bst->flags, (int)(now - llast)/2);
+                llast = now;
+            }
+
+            n = to_rx;//fwrite(samples, 2 * sizeof(int16_t), to_rx, p->out_file);
 
             if (n != to_rx) {
                 done = true;
@@ -293,6 +314,13 @@ int test_run(struct test_params *p)
     if (dev == NULL) {
         return -1;
     }
+
+    unsigned int val;
+    bladerf_config_gpio_read(dev, &val);
+    val |= 0x10000; //enable timestamps, clears and resets everything on write
+    bladerf_config_gpio_write(dev, val);
+    bladerf_config_gpio_read(dev, &val);
+
 
     if (p->in_file != NULL) {
         tx_args.dev = dev;
