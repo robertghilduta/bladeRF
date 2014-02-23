@@ -248,16 +248,8 @@ begin
 
     -- Cross domain synchronizer chains
 usb_speed <= '0';
+usb_speed_rx <= '0';
 
-    U_usb_speed_rx : entity work.synchronizer
-      generic map (
-        RESET_LEVEL         =>  '0'
-      ) port map (
-        reset               =>  '0',
-        clock               =>  rx_clock,
-        async               =>  nios_gpio(7),
-        sync                =>  usb_speed_rx
-      ) ;
 
     generate_mux_sel : for i in rx_mux_sel'range generate
         U_rx_source : entity work.synchronizer
