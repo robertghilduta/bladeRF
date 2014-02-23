@@ -161,6 +161,8 @@ architecture hosted_bladerf of bladerf is
     signal meta_en_rx       : std_logic ;
     signal meta_en_fx3      : std_logic ;
     signal tx_timestamp     : unsigned(63 downto 0) ;
+    signal tx_meta_write    : std_logic;
+    signal tx_timestamp_en  : std_logic_vector(256 downto 0);
     signal rx_timestamp     : unsigned(63 downto 0) ;
     signal timestamp_sync   : std_logic ;
 
@@ -500,6 +502,7 @@ rx_sample_corrected_valid <= rx_gen_valid;
 
         meta_en             =>  meta_en_tx,
         timestamp           =>  tx_timestamp,
+        timestamp_valid     =>  tx_timestamp_en(0),
 
         fifo_empty          =>  tx_sample_fifo.rempty,
         fifo_usedw          =>  tx_sample_fifo.rused,
@@ -744,17 +747,30 @@ rx_sample_corrected_valid <= rx_gen_valid;
     mini_exp1               <= 'Z';
     mini_exp2               <= 'Z';
 
+    process(fx3_pclk, tx_reset)
+    begin
+        if( tx_reset = '1') then
+            tx_meta_write <= '0';
+        elsif( rising_edge( fx3_pclk )) then
+            if (tx_meta_fifo.wreq = '1') then
+                tx_meta_write <= '1';
+            end if;
+        end if;
+    end process;
+
     process(tx_clock, tx_reset)
     begin
         if( tx_reset = '1') then
             tx_timestamp <= (others => '0');
             tx_sync_r <= (others => '0');
+            tx_timestamp_en <= (others => '0');
         elsif( rising_edge( tx_clock )) then
+            tx_timestamp_en <= tx_meta_write & tx_timestamp_en(256 downto 1);
             tx_sync_r <= timestamp_sync & tx_sync_r(7 downto 1);
             if (tx_sync_r(3 downto 0) = "1100") then
                 tx_timestamp <= (others => '0');
             else
-                if (tx_enable = '1') then
+                if (tx_enable = '1' and tx_timestamp_en(0) = '1') then
                     tx_timestamp <= tx_timestamp + 1;
                 else
                     tx_timestamp <= (others => '0');

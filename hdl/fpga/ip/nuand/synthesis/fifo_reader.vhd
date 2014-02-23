@@ -10,6 +10,7 @@ entity fifo_reader is
 
     meta_en             :   in      std_logic ;
     timestamp           :   in      unsigned(63 downto 0);
+    timestamp_valid     :   in      std_logic ;
 
     fifo_usedw          :   in      std_logic_vector(11 downto 0);
     fifo_read           :   buffer  std_logic ;
@@ -68,14 +69,14 @@ begin
             end if;
         end if;
     end process;
-    meta_time_eq <= '1' when (enable = '1' and meta_fifo_empty = '0' and timestamp(63 downto 0) = meta_p_time) else '0';
+    meta_time_eq <= '1' when (enable = '1' and timestamp_valid = '1' and meta_loaded = '1' and timestamp(63 downto 0) = meta_p_time) else '0';
     process(clock, reset)
     begin
         if (reset = '1') then
             meta_time_hit <= (others => '0');
         elsif(rising_edge(clock)) then
             if (meta_time_eq = '1') then
-                meta_time_hit <= to_signed(1021, 16); --meta_time_hit'length);
+                meta_time_hit <= to_signed(1014, 16); --meta_time_hit'length);
             else
                 if (meta_time_hit > 0) then
                     meta_time_hit <= meta_time_hit - 1;
