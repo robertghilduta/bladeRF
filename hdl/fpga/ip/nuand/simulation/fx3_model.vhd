@@ -124,9 +124,9 @@ begin
             wait until rising_edge( fx3_pclk ) ;
             dma3_tx_reqx <= '1' ;
             for i in 1 to 4 loop
-              if (i = 3 or i = 2 or i = 4) then
+              if (i = 3 or i = 1 or i = 4) then
                   fx3_gpif <= (others => '0');
-              elsif (i = 1) then
+              elsif (i = 2) then
                   fx3_gpif(31 downto 0) <= std_logic_vector(to_signed(cntr, 32)) ;
                   cntr := cntr + 508*2;
               end if;

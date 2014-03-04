@@ -58,7 +58,7 @@ begin
             meta_fifo_read <= '0';
             if( meta_loaded = '0' ) then
                 if( unsigned(meta_fifo_usedw) > 0) then
-                    meta_p_time <= unsigned(meta_fifo_data(63 downto 0));
+                    meta_p_time <= unsigned(meta_fifo_data(95 downto 32));
                     meta_loaded <= '1';
                     meta_fifo_read <= '1';
                 end if;
