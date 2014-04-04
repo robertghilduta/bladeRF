@@ -25,5 +25,7 @@
 #include "bladeRF.h"
 
 extern const struct NuandApplication NuandRFLink;
+void NuandRFLinkSetLoopBack(int);
+int NuandRFLinkGetLoopBack(void);
 
 #endif /* _RF_H_ */
