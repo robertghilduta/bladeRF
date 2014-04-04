@@ -397,6 +397,12 @@ typedef enum {
     BLADERF_LB_RF_LNA3,
 
     /**
+     * Firmware loopback. This causes URBs to be loopbacked by the peripheral
+     * USB device
+     */
+    BLADERF_LB_FIRMWARE,
+
+    /**
      * Disables loopback and returns to normal operation.
      */
     BLADERF_LB_NONE

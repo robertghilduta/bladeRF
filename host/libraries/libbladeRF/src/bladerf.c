@@ -198,11 +198,28 @@ int bladerf_enable_module(struct bladerf *dev,
 
 int bladerf_set_loopback(struct bladerf *dev, bladerf_loopback l)
 {
+    int status;
+    if (l == BLADERF_LB_FIRMWARE) {
+        return dev->fn->set_firmware_loopback(dev, true);
+    }
+    status = dev->fn->set_firmware_loopback(dev, false);
+    if (!status)
+        return status;
     return lms_set_loopback_mode(dev, l);
 }
 
 int bladerf_get_loopback(struct bladerf *dev, bladerf_loopback *l)
 {
+    int status;
+    bool enabled;
+    status = dev->fn->get_firmware_loopback(dev, &enabled);
+    if (status)
+        return status;
+
+    if (enabled) {
+        *l = BLADERF_LB_FIRMWARE;
+        return status;
+    }
     return lms_get_loopback_mode(dev, l);
 }
 

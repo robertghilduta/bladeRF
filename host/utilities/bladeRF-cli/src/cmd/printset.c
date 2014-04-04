@@ -689,6 +689,10 @@ int print_loopback(struct cli_state *state, int argc, char **argv)
             printf("Loopback mode: rf_lna3\n");
             break;
 
+        case BLADERF_LB_FIRMWARE:
+            printf("Loopback mode: firmware\n");
+            break;
+
         case BLADERF_LB_NONE:
             printf("Loopback mode: none\n");
             break;
@@ -719,6 +723,7 @@ int set_loopback(struct cli_state *state, int argc, char **argv)
         printf("  rx_lna1           RF loopback: TXMIX --> RXMIX via LNA1 path.\n");
         printf("  rx_lna2           RF loopback: TXMIX --> RXMIX via LNA2 path.\n");
         printf("  rx_lna3           RF loopback: TXMIX --> RXMIX via LNA3 path.\n");
+        printf("  firmware          Firmware loopback: peripheral USB device sends all URBs back\n");
         printf("  none              Loopback disabled - Normal operation.\n");
         printf("\n");
 
